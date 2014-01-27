@@ -32,7 +32,7 @@ The following commands can be used to run the test suite locally:
 ```bash
 cd <project root>
 composer update
-vendor/phpunit/phpunit/phpunit.php --bootstrap test/bootstrap.php test/Acquia/Test/PingdomApi.php
+vendor/phpunit/phpunit/phpunit.php --bootstrap test/bootstrap.php test/Acquia/Test/Pingdom/PingdomApi.php
 ```
 
 Using `composer update` without the `--no-dev` flag will download the phpunit
