@@ -174,6 +174,15 @@ class UnitTest extends PHPUnit_Framework_TestCase {
   }
 
   /**
+   * Test modifyAllChecks() requires the $parameters parameter.
+   *
+   * @expectedException Acquia\Pingdom\MissingParameterException
+   */
+  public function testMissingParametersModifyAllChecks() {
+    $this->pingdom->modifyAllChecks(null);
+  }
+
+  /**
    * Test removeCheck() requires the $check_id parameter.
    *
    * @expectedException Acquia\Pingdom\MissingParameterException

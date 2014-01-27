@@ -243,7 +243,8 @@ class PingdomApi {
    *
    * Pingdom allows all checks to be modified at once when the "checkids"
    * parameter is not supplied but since that is a very destructive operation we
-   * require the check IDs to be explicitly specified.
+   * require the check IDs to be explicitly specified. See modifyAllChecks() if
+   * you need to modify all checks at once.
    *
    * @param array $check_ids
    *   An array of check IDs to modify.
@@ -261,6 +262,28 @@ class PingdomApi {
       'parameters' => $parameters,
     ), __METHOD__);
     $parameters['checkids'] = implode(',', $check_ids);
+    $data = $this->request('PUT', 'checks', $parameters);
+    return $data->message;
+  }
+
+  /**
+   * Modifies all checks.
+   *
+   * This method can be used to modify all checks at once. Check modification by
+   * this method is limited to adjusting the paused status and check frequency.
+   * This is a relatively destructive operation so please be careful that you
+   * intend to modify all checks before calling this method.
+   *
+   * @param array $parameters
+   *   An array of parameters by which to modify the given checks:
+   *   - paused: TRUE for paused; FALSE for unpaused.
+   *   - resolution: An integer specifying the check frequency.
+   *
+   * @return string
+   *   The returned response message.
+   */
+  public function modifyAllChecks($parameters) {
+    $this->ensureParameters(array('parameters' => $parameters), __METHOD__);
     $data = $this->request('PUT', 'checks', $parameters);
     return $data->message;
   }
