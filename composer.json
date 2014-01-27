@@ -1,0 +1,22 @@
+{
+    "name": "acquia/pingdom",
+    "description": "A PHP library for interacting with the Pingdom REST API.",
+    "license": "GPL",
+    "authors": [
+        {
+            "name": "Richard Burford",
+            "email": "richard.burford@acquia.com"
+        }
+    ],
+    "require": {
+      "guzzle/http": "v3.8.0"
+    },
+    "require-dev": {
+      "phpunit/phpunit": "3.7.*"
+    },
+    "autoload": {
+      "psr-0": {
+        "Acquia": "src/"
+      }
+    }
+}
