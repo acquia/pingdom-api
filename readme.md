@@ -1,6 +1,8 @@
 Pingdom API
 ===========
 
+[![Build Status](https://travis-ci.org/psynaptic/pingdom-api.png?branch=master)](https://travis-ci.org/psynaptic/pingdom-api)
+
 This package is a PHP interface to the Pingdom REST API.
 
 Installation
