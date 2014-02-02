@@ -267,22 +267,17 @@ class UnitTest extends PHPUnit_Framework_TestCase {
   }
 
   /**
-   * Test formatParameters() doesn't coerce the wrong types.
+   * Test buildRequestUrl() handles query parameters correctly.
    */
-  public function testFormatParameters() {
+  public function testBuildRequestUrl() {
     $parameters = array(
       'bool_true' => TRUE,
       'bool_false' => FALSE,
       'int_true' => 1,
       'int_false' => 0,
     );
-    $coerced = $this->pingdom->formatParameters($parameters);
-    $expected = array(
-      'bool_true' => 'true',
-      'bool_false' => 'false',
-      'int_true' => 1,
-      'int_false' => 0,
-    );
+    $coerced = $this->pingdom->buildRequestUrl('resource', $parameters);
+    $expected = 'https://api.pingdom.com/api/2.0/resource?bool_true=true&bool_false=false&int_true=1&int_false=0';
     $this->assertSame($coerced, $expected);
   }
 
