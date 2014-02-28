@@ -1,7 +1,7 @@
 {
     "name": "acquia/pingdom-api",
     "description": "A PHP library for interacting with the Pingdom REST API.",
-    "license": "GPL",
+    "license": "MIT",
     "authors": [
         {
             "name": "Richard Burford",
