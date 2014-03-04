@@ -505,9 +505,9 @@ class PingdomApi {
     if ($status_class === 4 || $status_class === 5) {
       $message = $this->getError($data, $status);
       switch ($status_class) {
-        case '4':
+        case 4:
           throw new ClientErrorException(sprintf('Client error: %s', $message), $status);
-        case '5':
+        case 5:
           throw new ServerErrorException(sprintf('Server error: %s', $message), $status);
       }
     }
