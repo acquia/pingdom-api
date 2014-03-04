@@ -532,11 +532,8 @@ class PingdomApi {
    */
   public function buildRequestUrl($resource, $parameters = array()) {
     foreach ($parameters as $property => $value) {
-      if ($value === FALSE) {
-        $parameters[$property] = 'false';
-      }
-      if ($value === TRUE) {
-        $parameters[$property] = 'true';
+      if (is_bool($value)) {
+        $parameters[$property] = $value ? 'true' : 'false';
       }
     }
     $query = empty($parameters) ? '' : '?' . http_build_query($parameters);
