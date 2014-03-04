@@ -437,7 +437,7 @@ class PingdomApi {
     }
     foreach ($parameters as $parameter => $value) {
       if (!isset($value)) {
-        throw new MissingParameterException(sprintf('Missing required %s parameter in %s', $parameter,  $method));
+        throw new MissingParameterException(sprintf('Missing required %s parameter in %s', $parameter, $method));
       }
     }
   }
