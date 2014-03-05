@@ -270,6 +270,7 @@ class UnitTest extends PHPUnit_Framework_TestCase {
    * Test buildRequestUrl() handles query parameters correctly.
    */
   public function testBuildRequestUrl() {
+    ini_set('arg_separator.output', '&amp;');
     $parameters = array(
       'bool_true' => TRUE,
       'bool_false' => FALSE,
