@@ -536,7 +536,7 @@ class PingdomApi {
         $parameters[$property] = $value ? 'true' : 'false';
       }
     }
-    $query = empty($parameters) ? '' : '?' . http_build_query($parameters);
+    $query = empty($parameters) ? '' : '?' . http_build_query($parameters, NULL, '&');
     return sprintf('%s/%s%s', self::ENDPOINT, $resource, $query);
   }
 
