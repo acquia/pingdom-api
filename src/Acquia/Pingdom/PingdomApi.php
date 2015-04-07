@@ -467,7 +467,7 @@ class PingdomApi {
     $headers[] = 'Content-Type: application/json; charset=utf-8';
     $headers[] = 'App-Key: ' . $this->api_key;
     if (!empty($this->account_email)) {
-      $headers['Account-Email'] = $this->account_email;
+      $headers[] = 'Account-Email: '.$this->account_email;
     }
     if (!empty($body)) {
       if (!is_string($body)) {
