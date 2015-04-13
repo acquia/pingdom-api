@@ -1,17 +1,21 @@
 <?php
 
 use Acquia\Pingdom\PingdomApi;
-use Acquia\Pingdom\MissingCredentialsException;
 use Acquia\Pingdom\MissingParameterException;
+use GuzzleHttp\Message\Response;
+use GuzzleHttp\Subscriber\Mock;
 
 class UnitTest extends PHPUnit_Framework_TestCase {
 
+  /**
+   * @var PingdomApi
+   */
   protected $pingdom;
 
   protected $default_check = array(
     'name' => 'name',
     'host' => 'host',
-    'url' => 'url',
+    'type' => 'type',
   );
 
   public function setUp() {
@@ -29,7 +33,7 @@ class UnitTest extends PHPUnit_Framework_TestCase {
    * @expectedException Acquia\Pingdom\MissingCredentialsException
    */
   public function testMissingCredentialsUsername() {
-    $api = new PingdomApi(null, 'password', 'api_key');
+    new PingdomApi(null, 'password', 'api_key');
   }
 
   /**
@@ -38,7 +42,7 @@ class UnitTest extends PHPUnit_Framework_TestCase {
    * @expectedException Acquia\Pingdom\MissingCredentialsException
    */
   public function testMissingCredentialsPassword() {
-    $api = new PingdomApi('username', null, 'api_key');
+    new PingdomApi('username', null, 'api_key');
   }
 
   /**
@@ -47,7 +51,7 @@ class UnitTest extends PHPUnit_Framework_TestCase {
    * @expectedException Acquia\Pingdom\MissingCredentialsException
    */
   public function testMissingCredentialsApiKey() {
-    $api = new PingdomApi('username', 'password', null);
+    new PingdomApi('username', 'password', null);
   }
 
   /**
@@ -87,17 +91,6 @@ class UnitTest extends PHPUnit_Framework_TestCase {
   public function testMissingParameterAddCheckHost() {
     $check = $this->default_check;
     $check['host'] = null;
-    $this->pingdom->addCheck($check);
-  }
-
-  /**
-   * Test addCheck() requires the url index of the $check parameter.
-   *
-   * @expectedException Acquia\Pingdom\MissingParameterException
-   */
-  public function testMissingParameterAddCheckUrl() {
-    $check = $this->default_check;
-    $check['url'] = null;
     $this->pingdom->addCheck($check);
   }
 
@@ -269,17 +262,89 @@ class UnitTest extends PHPUnit_Framework_TestCase {
   /**
    * Test buildRequestUrl() handles query parameters correctly.
    */
-  public function testBuildRequestUrl() {
-    ini_set('arg_separator.output', '&amp;');
+  public function testBuildRequestUrl()
+  {
+    $api = new PingdomApi('user', 'password', 'api_key');
+    // Create a mock subscriber and queue a response.
+    $mockResponse = new Response(200);
+    $mockResponseBody = \GuzzleHttp\Stream\Stream::factory('{}');
+    $mockResponse->setBody($mockResponseBody);
+    $mock = new Mock([
+      $mockResponse,
+    ]);
+    $api->getClient()->getEmitter()->attach($mock);
+
     $parameters = array(
-      'bool_true' => TRUE,
-      'bool_false' => FALSE,
+      'bool_true' => true,
+      'bool_false' => false,
       'int_true' => 1,
       'int_false' => 0,
     );
-    $coerced = $this->pingdom->buildRequestUrl('resource', $parameters);
+    $api->request('GET', 'resource', $parameters);
     $expected = 'https://api.pingdom.com/api/2.0/resource?bool_true=true&bool_false=false&int_true=1&int_false=0';
-    $this->assertSame($coerced, $expected);
+    $this->assertSame($api->getLastResponse()->getEffectiveUrl(), $expected);
+  }
+
+  /**
+   * Test request() handles 400 response
+   *
+   * @expectedException Acquia\Pingdom\ClientErrorException
+   * @expectedExceptionMessage Client error: 403 Forbidden: Something went wrong! This string describes what happened.
+   */
+  public function testRequest400() {
+    $api = new PingdomApi('user', 'password', 'api_key');
+
+    // Create a mock subscriber and queue a response.
+
+    $mockResponse = new Response(403);
+    $mockResponseBody = \GuzzleHttp\Stream\Stream::factory('{
+      "error":{
+      "statuscode":403,
+      "statusdesc":"Forbidden",
+      "errormessage":"Something went wrong! This string describes what happened."
+    }
+    }');
+    $mockResponse->setBody($mockResponseBody);
+    $mock = new Mock([
+      $mockResponse,
+    ]);
+    $api->getClient()->getEmitter()->attach($mock);
+    $api->getChecks();
+  }
+
+  /**
+   * Test request() handles 500 response
+   *
+   * @expectedException Acquia\Pingdom\ServerErrorException
+   * @expectedExceptionMessage Server error: 503 Service unavailable: Try again later.
+   */
+  public function testRequest500() {
+    $api = new PingdomApi('user', 'password', 'api_key');
+
+    // Create a mock subscriber and queue a response.
+    $mockResponse = new Response(503);
+    $mockResponseBody = \GuzzleHttp\Stream\Stream::factory('{
+      "error":{
+      "statuscode":503,
+      "statusdesc":"Service unavailable",
+      "errormessage":"Try again later."
+    }
+    }');
+    $mockResponse->setBody($mockResponseBody);
+    $mock = new Mock([
+      $mockResponse,
+    ]);
+    $api->getClient()->getEmitter()->attach($mock);
+    $api->getChecks();
+  }
+
+  /**
+   * @expectedException \Exception
+   * @expectedExceptionMessage foo is not supported.
+   */
+  public function testUndefinedMethod() {
+    $api = new PingdomApi('user', 'password', 'api_key');
+    $api->request('foo', '/');
   }
 
 }
