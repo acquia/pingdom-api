@@ -2,36 +2,17 @@
 
 namespace Acquia\Pingdom;
 
-use Acquia\Pingdom\MissingCredentialsException;
-use Acquia\Pingdom\MissingParameterException;
-use Acquia\Pingdom\ClientErrorException;
-use Acquia\Pingdom\ServerErrorException;
-use Acquia\Pingdom\CurlErrorException;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Message\Response;
 
 class PingdomApi {
 
-  const ENDPOINT = 'https://api.pingdom.com/api/2.0';
 
-  /**
-   * The username to access the service.
-   *
-   * @var string
-   */
-  private $username;
+  const ENDPOINT = 'https://api.pingdom.com/api/{version}/';
 
-  /**
-   * The password to access the service.
-   *
-   * @var string
-   */
-  private $password;
-
-  /**
-   * The Pingdom API key.
-   *
-   * @var string
-   */
-  private $api_key;
+  const VERSION = '2.0';
 
   /**
    * The team account email address used for multi-user authentication.
@@ -48,6 +29,20 @@ class PingdomApi {
   private $gzip;
 
   /**
+   * Guzzle Client
+   *
+   * @var Client
+   */
+  private $client;
+
+  /**
+   * Last response from API call.
+   *
+   * @var Response
+   */
+  private $last_response;
+
+  /**
    * Constructor.
    *
    * @param string $username
@@ -59,17 +54,30 @@ class PingdomApi {
    * @param bool $gzip
    *   TRUE if responses from Pingdom should use gzip compression, otherwise
    *   FALSE.
+   * @param bool $debug
+   *   TRUE if Guzzle should use debug mode
+   *   FALSE.
    *
    * @throws MissingCredentialsException
    */
-  public function __construct($username, $password, $api_key, $gzip = FALSE) {
+  public function __construct($username, $password, $api_key, $gzip = FALSE, $debug = FALSE) {
     if (empty($username) || empty($password) || empty($api_key)) {
       throw new MissingCredentialsException('Missing Pingdom credentials. Please supply the username, password, and api_key parameters.');
     }
-    $this->username = $username;
-    $this->password = $password;
-    $this->api_key = $api_key;
-    $this->gzip = $gzip;
+
+    $this->client = new Client([
+      'base_url' => [self::ENDPOINT, ['version' => self::VERSION]],
+      'defaults' => [
+        'headers' => [
+          'Content-Type' => 'application/json; charset=utf-8',
+          'App-Key' => $api_key,
+          'User-Agent' => 'PingdomApi/1.0',
+        ],
+        'auth'    => [$username, $password],
+        'decode_content' => 'gzip',
+        'debug' => $debug,
+      ]
+    ]);
   }
 
   /**
@@ -117,6 +125,8 @@ class PingdomApi {
         $parameters['offset'] = $offset;
       }
     }
+    $parameters['tags'] = 'pfizer';
+    $parameters['include_tags'] = true;
     $data = $this->request('GET', 'checks', $parameters);
     return $data->checks;
   }
@@ -153,11 +163,11 @@ class PingdomApi {
     $this->ensureParameters(array(
       'name' => $check['name'],
       'host' => $check['host'],
-      'url' => $check['url'],
+      'type' => $check['type'],
     ), __METHOD__);
     $check += $defaults;
     $data = $this->request('POST', 'checks', $check);
-    return sprintf('Created check %s for %s at http://%s%s', $data->check->id, $check['name'], $check['host'], $check['url']);
+    return sprintf('Created check %s for %s at http://%s%s', $data->check->id, $check['name'], $check['host'], $check['type']);
   }
 
   /**
@@ -454,90 +464,48 @@ class PingdomApi {
    *   URL query string.
    * @param array $headers
    *   Additional request headers, if any are required.
-   * @param mixed $body
-   *  Data to use for the body of the request when using POST or PUT methods.
-   *  This can be a JSON string literal or something that json_encode() accepts.
    *
    * @return object
    *   An object containing the response data.
    */
-  public function request($method, $resource, $parameters = array(), $headers = array(), $body = NULL) {
-    $handle = curl_init();
-
-    $headers[] = 'Content-Type: application/json; charset=utf-8';
-    $headers[] = 'App-Key: ' . $this->api_key;
+  public function request($method, $resource, $parameters = array(), $headers = array()) {
     if (!empty($this->account_email)) {
       $headers[] = 'Account-Email: '.$this->account_email;
     }
-    if (!empty($body)) {
-      if (!is_string($body)) {
-        $body = json_encode($body);
+
+    // The Pingdom API requires boolean values to be transmitted as "true" and
+    // "false" string representations. To preserve the convenience of using the
+    // boolean types we will convert them here.
+    $parameters = array_map(function ($a) {
+      return !is_bool($a) ? $a : ($a ? 'true' : 'false');
+    }, $parameters);
+
+    try {
+      $method = strtolower($method);
+      if (method_exists($this->client, $method)) {
+        $response = $this->client->$method($resource, [
+          'headers' => $headers,
+          'query' => $parameters,
+        ]);
       }
-      curl_setopt($handle, CURLOPT_POSTFIELDS, $body);
-      $headers[] = 'Content-Length: ' . strlen($body);
-    }
-    if (!empty($headers)) {
-      curl_setopt($handle, CURLOPT_HTTPHEADER, $headers);
-    }
-    curl_setopt($handle, CURLOPT_CUSTOMREQUEST, $method);
-    curl_setopt($handle, CURLOPT_URL, $this->buildRequestUrl($resource, $parameters));
-    curl_setopt($handle, CURLOPT_USERPWD, $this->getAuth());
-    curl_setopt($handle, CURLOPT_FOLLOWLOCATION, TRUE);
-    curl_setopt($handle, CURLOPT_MAXREDIRS, 10);
-    curl_setopt($handle, CURLOPT_USERAGENT, 'PingdomApi/1.0');
-    curl_setopt($handle, CURLOPT_RETURNTRANSFER, TRUE);
-    curl_setopt($handle, CURLOPT_TIMEOUT, 10);
-    $gzip = !empty($this->gzip) ? 'gzip' : '';
-    curl_setopt($handle, CURLOPT_ENCODING, $gzip);
-
-    $response = curl_exec($handle);
-    if (curl_errno($handle) > 0) {
-      $curl_error = sprintf('Curl error: %s', curl_error($handle));
-      curl_close($handle);
-      throw new CurlErrorException($curl_error, $curl_errno);
-    }
-
-    $data = json_decode($response);
-    $status = curl_getinfo($handle, CURLINFO_HTTP_CODE);
-    curl_close($handle);
-
-    $status_class = (int) floor($status / 100);
-    if ($status_class === 4 || $status_class === 5) {
-      $message = $this->getError($data, $status);
-      switch ($status_class) {
-        case 4:
-          throw new ClientErrorException(sprintf('Client error: %s', $message), $status);
-        case 5:
-          throw new ServerErrorException(sprintf('Server error: %s', $message), $status);
+      else {
+        throw new \Exception($method . ' is not supported.');
       }
     }
+    catch (ClientException $e) {
+      $status = $e->getResponse()->getStatusCode();
+      $message =  $this->getError($e->getResponse()->json(['object' => true]), $status);
+      throw new ClientErrorException(sprintf('Client error: %s', $message), $status);
+    }
+    catch (ServerException $e) {
+      $status = $e->getResponse()->getStatusCode();
+      $message =  $this->getError($e->getResponse()->json(['object' => true]), $status);
+      throw new ServerErrorException(sprintf('Server error: %s', $message), $status);
+    }
 
+    $this->setLastResponse($response);
+    $data = $response->json(['object' => true]);
     return $data;
-  }
-
-  /**
-   * Builds the request URL.
-   *
-   * The Pingdom API requires boolean values to be transmitted as "true" and
-   * "false" string representations. To preserve the convenience of using the
-   * boolean types we will convert them here.
-   *
-   * @param string $resource
-   *   The resource path part of the URL, without leading or trailing slashes.
-   * @param array $parameters
-   *   An array of query string parameters to append to the URL.
-   *
-   * @return string
-   *   The fully-formed request URI.
-   */
-  public function buildRequestUrl($resource, $parameters = array()) {
-    foreach ($parameters as $property => $value) {
-      if (is_bool($value)) {
-        $parameters[$property] = $value ? 'true' : 'false';
-      }
-    }
-    $query = empty($parameters) ? '' : '?' . http_build_query($parameters, NULL, '&');
-    return sprintf('%s/%s%s', self::ENDPOINT, $resource, $query);
   }
 
   /**
@@ -566,13 +534,27 @@ class PingdomApi {
   }
 
   /**
-   * Gets the authentication string necessary for making API calls.
-   *
-   * @return string
-   *   The required authentication string.
+   * @return Client
    */
-  private function getAuth() {
-    return sprintf('%s:%s', $this->username, $this->password);
+  public function getClient()
+  {
+    return $this->client;
+  }
+
+  /**
+   * @return Response
+   */
+  public function getLastResponse()
+  {
+    return $this->last_response;
+  }
+
+  /**
+   * @param Response $last_response
+   */
+  public function setLastResponse($last_response)
+  {
+    $this->last_response = $last_response;
   }
 
 }
