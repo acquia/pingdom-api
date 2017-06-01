@@ -1,7 +1,10 @@
 Pingdom API
 ===========
 
+[INACTIVE] pingdom-api, Acquia is no longer maintaining or working on this project.
+
 [![Build Status](https://travis-ci.org/acquia/pingdom-api.png?branch=master)](https://travis-ci.org/acquia/pingdom-api)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This package is a PHP interface to the Pingdom REST API.
 
